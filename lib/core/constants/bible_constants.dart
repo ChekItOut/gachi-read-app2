@@ -91,6 +91,7 @@ class BibleConstants {
     return bookNames[code] ?? code;
   }
 
+  static List<String> get bookOrder => allBookCodes;
   static bool isOldTestament(String code) {
     return oldTestamentCodes.contains(code);
   }

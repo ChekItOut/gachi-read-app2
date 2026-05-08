@@ -214,4 +214,20 @@ class BibleService {
       };
     }
   }
+
+  // 장의 구절 목록을 Map 형태로 반환 (demo용)
+  List<Map<String, dynamic>> getVerses(String bookCode, int chapter) {
+    final verses = getChapter(bookCode, chapter);
+    return verses.map((v) => {
+      'verse': v.verse,
+      'content': v.content,
+    }).toList();
+  }
+
+  // 전체 책 코드 목록 반환
+  List<String> getBookList() {
+    return BibleConstants.allBookCodes;
+  }
 }
+
+// 추가 헬퍼 메서드 (demo용)

@@ -4,7 +4,6 @@ import '../../../core/constants/bible_constants.dart';
 import '../../../data/services/bible_service.dart';
 import '../../../data/services/firebase_service.dart';
 import '../../../data/models/app_models.dart';
-import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 
 class FreeBibleScreen extends StatefulWidget {

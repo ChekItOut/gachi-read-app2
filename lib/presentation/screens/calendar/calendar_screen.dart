@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/bible_constants.dart';
-import '../../../data/models/app_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 
