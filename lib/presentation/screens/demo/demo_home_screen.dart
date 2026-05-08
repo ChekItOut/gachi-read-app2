@@ -16,13 +16,50 @@ class DemoHomeScreen extends StatefulWidget {
   State<DemoHomeScreen> createState() => _DemoHomeScreenState();
 }
 
-class _DemoHomeScreenState extends State<DemoHomeScreen> {
+class _DemoHomeScreenState extends State<DemoHomeScreen>
+    with TickerProviderStateMixin {
+  // 둥실둥실 애니메이션 컨트롤러
+  late AnimationController _floatController;
+  late Animation<double> _floatAnimation;
+
+  // 살짝 회전 애니메이션 컨트롤러
+  late AnimationController _wobbleController;
+  late Animation<double> _wobbleAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    // 둥실둥실 (위아래 움직임) - 2.4초 주기
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+
+    _floatAnimation = Tween<double>(begin: 0, end: -14).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+
+    // 살짝 흔들림 (좌우 기울기) - 3.2초 주기, 딜레이
+    _wobbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..repeat(reverse: true);
+
+    _wobbleAnimation = Tween<double>(begin: -0.04, end: 0.04).animate(
+      CurvedAnimation(parent: _wobbleController, curve: Curves.easeInOut),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DemoProvider>().loadTodayVerses();
     });
+  }
+
+  @override
+  void dispose() {
+    _floatController.dispose();
+    _wobbleController.dispose();
+    super.dispose();
   }
 
   @override
@@ -35,49 +72,42 @@ class _DemoHomeScreenState extends State<DemoHomeScreen> {
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
+          // 상단 앱바 (날짜 + 인사말)
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 80,
             floating: false,
             pinned: true,
             backgroundColor: AppColors.background,
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                padding: const EdgeInsets.fromLTRB(20, 56, 20, 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                padding: const EdgeInsets.fromLTRB(20, 52, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(dateStr,
-                              style: Theme.of(context).textTheme.labelLarge),
-                          const SizedBox(height: 4),
-                          Text(
-                            '안녕하세요, ${provider.myName}님 👋',
-                            style:
-                                Theme.of(context).textTheme.headlineMedium,
-                          ),
-                        ],
-                      ),
+                    Text(dateStr,
+                        style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 2),
+                    Text(
+                      '안녕하세요, ${provider.myName}님 👋',
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                    _buildFireIcon(provider),
                   ],
                 ),
               ),
             ),
           ),
+
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
-                // 스트릭 카드
-                _buildStreakCard(provider),
-                const SizedBox(height: 16),
+                // ─── 성령의 불 중앙 히어로 섹션 ───
+                _buildFireHeroSection(provider),
+                const SizedBox(height: 20),
 
                 // 커플 미연결
                 if (!provider.hasCoupleConnected) ...[
@@ -102,43 +132,174 @@ class _DemoHomeScreenState extends State<DemoHomeScreen> {
     );
   }
 
-  Widget _buildFireIcon(DemoProvider provider) {
+  // ─── 성령의 불 히어로 섹션 ───────────────────────────────────────────────
+  Widget _buildFireHeroSection(DemoProvider provider) {
     return GestureDetector(
       onTap: () => _showStreakSheet(provider),
-      child: Stack(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.softMint,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Image.asset('assets/images/holy_fire_sample.png',
-                  fit: BoxFit.contain),
-            ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.primary.withAlpha(18),
+              AppColors.background,
+            ],
           ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.warning,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '${provider.currentStreak}일',
-                style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          children: [
+            // 애니메이션 성령의 불 이미지
+            AnimatedBuilder(
+              animation: Listenable.merge([_floatController, _wobbleController]),
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, _floatAnimation.value),
+                  child: Transform.rotate(
+                    angle: _wobbleAnimation.value,
+                    child: child,
+                  ),
+                );
+              },
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  // 그림자 (바닥 그림자 - 둥실 효과 강조)
+                  AnimatedBuilder(
+                    animation: _floatController,
+                    builder: (context, _) {
+                      // 위로 올라갈수록 그림자가 작아짐
+                      final shadowScale = 1.0 -
+                          (_floatAnimation.value.abs() / 14) * 0.4;
+                      return Transform.translate(
+                        offset: Offset(0, 140 + _floatAnimation.value.abs() * 0.8),
+                        child: Container(
+                          width: 80 * shadowScale,
+                          height: 10 * shadowScale,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withAlpha(30),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // 성령의 불 이미지
+                  Image.asset(
+                    'assets/images/holy_fire_sample.png',
+                    width: 140,
+                    height: 140,
+                    fit: BoxFit.contain,
+                  ),
+                  // 레벨 뱃지
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.warning.withAlpha(80),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'Lv.${provider.fireLevel}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 16),
+
+            // 레벨 텍스트
+            Text(
+              '성령의 불 Level ${provider.fireLevel}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primaryText,
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // 스트릭 정보
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withAlpha(20),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🔥',
+                          style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${provider.currentStreak}일 연속 말씀 읽기',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // 다음 레벨까지 안내
+            Text(
+              provider.currentStreak < 5
+                  ? '${5 - provider.currentStreak}일 더 읽으면 Level 2로 진화해요!'
+                  : provider.currentStreak < 10
+                      ? '${10 - provider.currentStreak}일 더 읽으면 Level 3으로 진화해요!'
+                      : '최고 레벨 달성! 정말 대단해요! 🎉',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryText,
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            // 탭 안내
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.touch_app_outlined,
+                    size: 12, color: AppColors.secondaryText.withAlpha(120)),
+                const SizedBox(width: 4),
+                Text(
+                  '탭하여 자세히 보기',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.secondaryText.withAlpha(120),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -213,54 +374,6 @@ class _DemoHomeScreenState extends State<DemoHomeScreen> {
           style: const TextStyle(
               fontSize: 13, color: AppColors.secondaryText)),
     ]);
-  }
-
-  Widget _buildStreakCard(DemoProvider provider) {
-    return SoftCard(
-      backgroundColor: AppColors.softMint,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        children: [
-          Image.asset('assets/images/holy_fire_sample.png',
-              width: 44, height: 44),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '성령의 불 Level ${provider.fireLevel}',
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryText),
-                ),
-                Text(
-                  '${provider.currentStreak}일 연속 말씀 읽기 중',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.secondaryText),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '🔥 ${provider.currentStreak}',
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCoupleConnectCard(DemoProvider provider) {
@@ -406,8 +519,7 @@ class _DemoHomeScreenState extends State<DemoHomeScreen> {
                     items: books
                         .map((b) => DropdownMenuItem(
                               value: b,
-                              child: Text(
-                                  BibleConstants.getBookName(b)),
+                              child: Text(BibleConstants.getBookName(b)),
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -464,8 +576,7 @@ class _DemoHomeScreenState extends State<DemoHomeScreen> {
   }
 
   Widget _buildTodayCard(DemoProvider provider) {
-    final bookName =
-        BibleConstants.getBookName(provider.currentBook);
+    final bookName = BibleConstants.getBookName(provider.currentBook);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
