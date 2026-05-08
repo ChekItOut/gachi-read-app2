@@ -5,6 +5,13 @@ import '../../core/constants/bible_constants.dart';
 /// 읽기 단위 타입
 enum ReadingUnit { chapter, verse }
 
+/// 레벨 변경 이벤트 타입
+enum FireLevelEvent {
+  none,
+  levelUp,    // 레벨 상승
+  streakBroken, // 연속성 깨짐
+}
+
 class DemoProvider extends ChangeNotifier {
   // 앱 상태
   bool _isLoggedIn = false;
@@ -20,8 +27,8 @@ class DemoProvider extends ChangeNotifier {
   String _partnerName = '파트너';
 
   // 읽기 플랜 설정
-  ReadingUnit _readingUnit = ReadingUnit.chapter; // 장 단위 or 절 단위
-  int _dailyAmount = 1;   // 하루에 몇 장 or 몇 절
+  ReadingUnit _readingUnit = ReadingUnit.chapter;
+  int _dailyAmount = 1;
 
   // 성경 읽기 상태
   String _currentBook = '창';
@@ -42,7 +49,11 @@ class DemoProvider extends ChangeNotifier {
   int _longestStreak = 7;
   int _fireLevel = 1;
 
-  // 캘린더 데이터 (완료한 날짜들)
+  // 레벨 이벤트 (UI에서 소비 후 none으로 리셋)
+  FireLevelEvent _fireLevelEvent = FireLevelEvent.none;
+  int _prevFireLevel = 1; // 레벨업 전 레벨 (fromLevel 용)
+
+  // 캘린더 데이터
   final Set<String> _completedDates = {};
 
   // 자유 읽기 - 저장된 구절
@@ -75,12 +86,20 @@ class DemoProvider extends ChangeNotifier {
   int get currentStreak => _currentStreak;
   int get longestStreak => _longestStreak;
   int get fireLevel => _fireLevel;
+  int get prevFireLevel => _prevFireLevel;
+  FireLevelEvent get fireLevelEvent => _fireLevelEvent;
   Set<String> get completedDates => _completedDates;
   List<Map<String, dynamic>> get savedVerses => _savedVerses;
   String get freeBibleBook => _freeBibleBook;
   int get freeBibleChapter => _freeBibleChapter;
 
-  /// 오늘 읽기 범위 요약 텍스트 (예: "창세기 1장 1-10절" or "창세기 1-2장")
+  /// 레벨 이벤트 소비 (화면에서 처리 후 반드시 호출)
+  void consumeFireLevelEvent() {
+    _fireLevelEvent = FireLevelEvent.none;
+    notifyListeners();
+  }
+
+  /// 오늘 읽기 범위 요약 텍스트
   String get todayRangeText {
     final bookName = BibleConstants.getBookName(_currentBook);
     if (_readingUnit == ReadingUnit.verse) {
@@ -114,7 +133,6 @@ class DemoProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 600));
     _hasCoupleConnected = true;
     _partnerName = partnerName.isNotEmpty ? partnerName : '파트너';
-    // 샘플 완료 날짜 추가
     final now = DateTime.now();
     for (int i = 1; i <= 3; i++) {
       final d = now.subtract(Duration(days: i));
@@ -144,7 +162,6 @@ class DemoProvider extends ChangeNotifier {
       _startVerse = startVerse;
       _endVerse = startVerse + dailyAmount - 1;
     } else {
-      // 장 단위: 해당 장 전체
       _startVerse = 1;
       final totalVerses =
           BibleService.instance.getVerses(book, chapter).length;
@@ -158,7 +175,6 @@ class DemoProvider extends ChangeNotifier {
   // ─── 오늘의 성경 구절 로드 ───────────────────────────────────────────────
   Future<void> _loadTodayVerses() async {
     if (_readingUnit == ReadingUnit.chapter) {
-      // 장 단위: dailyAmount만큼 여러 장 합산
       List<Map<String, dynamic>> allVerses = [];
       for (int i = 0; i < _dailyAmount; i++) {
         final chap = _currentChapter + i;
@@ -166,18 +182,15 @@ class DemoProvider extends ChangeNotifier {
             BibleService.instance.getChapterCount(_currentBook);
         if (chap > totalChapters) break;
         final verses = BibleService.instance.getVerses(_currentBook, chap);
-        // 장 번호 정보 추가
         for (final v in verses) {
           allVerses.add({...v, 'chapterNum': chap});
         }
       }
       _todayVerses = allVerses;
-      // endVerse를 마지막 절로 업데이트
       if (allVerses.isNotEmpty) {
         _endVerse = allVerses.last['verse'] as int;
       }
     } else {
-      // 절 단위
       final verses =
           BibleService.instance.getVerses(_currentBook, _currentChapter);
       if (verses.isNotEmpty) {
@@ -189,7 +202,6 @@ class DemoProvider extends ChangeNotifier {
     }
   }
 
-  // 오늘의 구절 로드 (외부 호출용)
   Future<void> loadTodayVerses() async {
     if (_hasReadingPlan && _todayVerses.isEmpty) {
       await _loadTodayVerses();
@@ -203,16 +215,59 @@ class DemoProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 500));
     _isTodayReadingComplete = true;
     _completedDates.add(todayDateString);
+
+    final oldLevel = _fireLevel;
     _currentStreak += 1;
+
+    int newLevel = 1;
     if (_currentStreak >= 10) {
-      _fireLevel = 3;
+      newLevel = 3;
     } else if (_currentStreak >= 5) {
-      _fireLevel = 2;
+      newLevel = 2;
     }
+
+    if (newLevel > oldLevel) {
+      // 레벨업 이벤트 발생
+      _prevFireLevel = oldLevel;
+      _fireLevel = newLevel;
+      _fireLevelEvent = FireLevelEvent.levelUp;
+    } else {
+      _fireLevel = newLevel;
+    }
+
     if (_currentStreak > _longestStreak) {
       _longestStreak = _currentStreak;
     }
     _setLoading(false);
+  }
+
+  /// 레벨업 테스트용 (데모 전용)
+  void testLevelUp(int targetLevel) {
+    final oldLevel = _fireLevel;
+    if (targetLevel <= oldLevel) return;
+
+    if (targetLevel == 2) {
+      _currentStreak = 5;
+    } else if (targetLevel == 3) {
+      _currentStreak = 10;
+    }
+    if (_currentStreak > _longestStreak) _longestStreak = _currentStreak;
+
+    _prevFireLevel = oldLevel;
+    _fireLevel = targetLevel;
+    _fireLevelEvent = FireLevelEvent.levelUp;
+    notifyListeners();
+  }
+
+  /// 연속성 깨짐 처리 (데모용: 수동 트리거) ──────────────────────────────
+  void breakStreak() {
+    if (_currentStreak > 0) {
+      _prevFireLevel = _fireLevel;
+      _currentStreak = 0;
+      _fireLevel = 1;
+      _fireLevelEvent = FireLevelEvent.streakBroken;
+      notifyListeners();
+    }
   }
 
   // ─── 소감 저장 ───────────────────────────────────────────────────────────
@@ -221,7 +276,6 @@ class DemoProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 400));
     _myReflection = content;
     _isMyReflectionDone = true;
-    // 데모: 파트너도 2초 후 자동으로 소감 작성
     Future.delayed(const Duration(seconds: 2), () {
       _partnerReflection =
           '오늘 말씀을 읽으면서 하나님의 사랑이 얼마나 크고 넓은지 다시 한번 느꼈어요. 특히 ${_currentChapter}장 말씀이 마음에 깊이 와닿았고, 우리 관계에서도 이런 사랑을 실천하고 싶다는 생각이 들었어요.';
@@ -317,6 +371,7 @@ class DemoProvider extends ChangeNotifier {
     _todayVerses = [];
     _currentStreak = 3;
     _fireLevel = 1;
+    _fireLevelEvent = FireLevelEvent.none;
     notifyListeners();
   }
 

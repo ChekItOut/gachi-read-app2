@@ -42,6 +42,10 @@ class DemoProfileScreen extends StatelessWidget {
                   _buildCoupleCard(context, provider),
                 const SizedBox(height: 20),
 
+                // 데모 테스트 버튼
+                _buildDemoTestCard(context, provider),
+                const SizedBox(height: 12),
+
                 // 데모 안내
                 _buildDemoNotice(context),
                 const SizedBox(height: 20),
@@ -361,6 +365,123 @@ class DemoProfileScreen extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: AppColors.primaryText)),
+    );
+  }
+
+  Widget _buildDemoTestCard(BuildContext context, DemoProvider provider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E5F5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCE93D8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.science_outlined, color: Color(0xFF7B1FA2), size: 18),
+            SizedBox(width: 8),
+            Text(
+              '🧪 데모 테스트',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF7B1FA2),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  // 스트릭을 5로 설정하여 레벨2 달성 테스트
+                  provider.testLevelUp(2);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B35),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    children: [
+                      Text('🔥🔥', style: TextStyle(fontSize: 18)),
+                      SizedBox(height: 4),
+                      Text(
+                        'Lv.2 달성',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  // 스트릭을 10으로 설정하여 레벨3 달성 테스트
+                  provider.testLevelUp(3);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE53935),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    children: [
+                      Text('🔥🔥🔥', style: TextStyle(fontSize: 18)),
+                      SizedBox(height: 4),
+                      Text(
+                        'Lv.3 달성',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => provider.breakStreak(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[600],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    children: [
+                      Text('💨', style: TextStyle(fontSize: 18)),
+                      SizedBox(height: 4),
+                      Text(
+                        '연속 깨짐',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ]),
+        ],
+      ),
     );
   }
 
