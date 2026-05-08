@@ -352,6 +352,29 @@ class DemoProvider extends ChangeNotifier {
     }
   }
 
+  /// 여러 절을 하나의 그룹으로 저장
+  void saveVerseGroup({
+    required String book,
+    required int chapter,
+    required int startVerse,
+    required int endVerse,
+    required String reference,
+    required String content,
+  }) {
+    final exists = _savedVerses.any((v) => v['reference'] == reference);
+    if (!exists) {
+      _savedVerses.insert(0, {
+        'reference': reference,
+        'content': content,
+        'bookCode': book,
+        'chapter': chapter,
+        'startVerse': startVerse,
+        'endVerse': endVerse,
+      });
+      notifyListeners();
+    }
+  }
+
   void deleteVerse(String reference) {
     _savedVerses.removeWhere((v) => v['reference'] == reference);
     notifyListeners();
