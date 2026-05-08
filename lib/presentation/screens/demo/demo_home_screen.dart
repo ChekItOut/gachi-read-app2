@@ -171,7 +171,7 @@ class _DemoHomeScreenState extends State<DemoHomeScreen>
                     },
                   ),
                   Image.asset(
-                    'assets/images/holy_fire_sample.png',
+                    _getFireImagePath(provider.fireLevel),
                     width: 140,
                     height: 140,
                     fit: BoxFit.contain,
@@ -1008,7 +1008,7 @@ class _DemoHomeScreenState extends State<DemoHomeScreen>
                       borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 20),
-            Image.asset('assets/images/holy_fire_sample.png',
+            Image.asset(_getFireImagePath(provider.fireLevel),
                 width: 80, height: 80),
             const SizedBox(height: 16),
             Text('성령의 불 Level ${provider.fireLevel}',
@@ -1048,6 +1048,18 @@ class _DemoHomeScreenState extends State<DemoHomeScreen>
         ),
       ),
     );
+  }
+
+  // ─── 레벨별 이미지 경로 헬퍼 ────────────────────────────────────────────
+  String _getFireImagePath(int level) {
+    switch (level) {
+      case 2:
+        return 'assets/images/holy_fire_level2.png';
+      case 3:
+        return 'assets/images/holy_fire_level3.png';
+      default:
+        return 'assets/images/holy_fire_sample.png';
+    }
   }
 
   Widget _statItem(String label, String value) {

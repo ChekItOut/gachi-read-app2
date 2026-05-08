@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 
 /// 성령의 불 레벨업 마일스톤 전체 화면
 /// [fromLevel] → [toLevel] 레벨업 시 표시
@@ -182,6 +181,18 @@ class _FireLevelUpScreenState extends State<FireLevelUpScreen>
 
   String get _levelBadge => 'Level ${widget.toLevel}';
 
+  // 레벨별 이미지 경로
+  String _getFireImagePath(int level) {
+    switch (level) {
+      case 2:
+        return 'assets/images/holy_fire_level2.png';
+      case 3:
+        return 'assets/images/holy_fire_level3.png';
+      default:
+        return 'assets/images/holy_fire_sample.png';
+    }
+  }
+
   String get _streakText {
     if (widget.toLevel == 2) return '5일 연속 달성';
     return '10일 연속 달성';
@@ -308,9 +319,9 @@ class _FireLevelUpScreenState extends State<FireLevelUpScreen>
                             ),
                           ),
                         ),
-                        // 이미지
+                        // 이미지 (레벨업 후 이미지 표시)
                         Image.asset(
-                          'assets/images/holy_fire_sample.png',
+                          _getFireImagePath(widget.toLevel),
                           width: 160,
                           height: 160,
                           fit: BoxFit.contain,

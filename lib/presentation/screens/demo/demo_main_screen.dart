@@ -210,6 +210,18 @@ class _StreakBrokenDialogState extends State<_StreakBrokenDialog>
     super.dispose();
   }
 
+  // 레벨별 이미지 경로
+  String _getFireImagePath(int level) {
+    switch (level) {
+      case 2:
+        return 'assets/images/holy_fire_level2.png';
+      case 3:
+        return 'assets/images/holy_fire_level3.png';
+      default:
+        return 'assets/images/holy_fire_sample.png';
+    }
+  }
+
   String get _prevLevelEmoji {
     if (widget.prevLevel == 3) return '🔥🔥🔥';
     if (widget.prevLevel == 2) return '🔥🔥';
@@ -261,15 +273,15 @@ class _StreakBrokenDialogState extends State<_StreakBrokenDialog>
                   Container(
                     width: 80,
                     height: 80,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3F0),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFF3F0),
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
                       child: Text('💨', style: TextStyle(fontSize: 36)),
                     ),
                   ),
-                  // 작은 불 이미지 (흑백 처리 효과)
+                  // 작은 불 이미지 (흑백 처리 효과 - 꺼진 불 표현)
                   Positioned(
                     right: 0,
                     bottom: 0,
@@ -281,7 +293,7 @@ class _StreakBrokenDialogState extends State<_StreakBrokenDialog>
                         0, 0, 0, 0.6, 0,
                       ]),
                       child: Image.asset(
-                        'assets/images/holy_fire_sample.png',
+                        _getFireImagePath(widget.prevLevel),
                         width: 36,
                         height: 36,
                       ),

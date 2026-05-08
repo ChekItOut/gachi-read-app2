@@ -127,6 +127,18 @@ class DemoProfileScreen extends StatelessWidget {
     );
   }
 
+  // 레벨별 이미지 경로
+  String _getFireImagePath(int level) {
+    switch (level) {
+      case 2:
+        return 'assets/images/holy_fire_level2.png';
+      case 3:
+        return 'assets/images/holy_fire_level3.png';
+      default:
+        return 'assets/images/holy_fire_sample.png';
+    }
+  }
+
   Widget _buildFireCard(BuildContext context, DemoProvider provider) {
     final levelDescriptions = {
       1: '말씀의 씨앗이 자라고 있어요',
@@ -147,8 +159,10 @@ class DemoProfileScreen extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(22),
-                child: Image.asset('assets/images/holy_fire_sample.png',
-                    fit: BoxFit.contain),
+                child: Image.asset(
+                  _getFireImagePath(provider.fireLevel),
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             const SizedBox(width: 16),
