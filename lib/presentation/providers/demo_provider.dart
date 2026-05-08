@@ -14,7 +14,7 @@ enum FireLevelEvent {
 
 class DemoProvider extends ChangeNotifier {
   // 앱 상태
-  bool _isLoggedIn = false;
+  bool _isLoggedIn = true; // Mock: 로그인 없이 바로 접근
   bool _hasCoupleConnected = false;
   bool _hasReadingPlan = false;
   bool _isTodayReadingComplete = false;
@@ -23,7 +23,7 @@ class DemoProvider extends ChangeNotifier {
   bool _isLoading = false;
 
   // 사용자 정보
-  String _myName = '나';
+  String _myName = '가치읽자 사용자';
   String _partnerName = '파트너';
 
   // 읽기 플랜 설정
@@ -382,7 +382,8 @@ class DemoProvider extends ChangeNotifier {
 
   // ─── 로그아웃 ────────────────────────────────────────────────────────────
   void logout() {
-    _isLoggedIn = false;
+    _isLoggedIn = true; // Mock: 로그아웃 후에도 로그인 유지 (데모 모드)
+    _myName = '가치읽자 사용자';
     _hasCoupleConnected = false;
     _hasReadingPlan = false;
     _isTodayReadingComplete = false;
