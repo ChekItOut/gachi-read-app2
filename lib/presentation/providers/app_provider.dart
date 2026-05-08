@@ -7,8 +7,14 @@ import '../../data/services/bible_service.dart';
 import '../../data/services/ai_service.dart';
 
 class AppProvider extends ChangeNotifier {
-  final FirebaseService _firebaseService = FirebaseService.instance;
-  final BibleService _bibleService = BibleService.instance;
+  final FirebaseService _firebaseService;
+  final BibleService _bibleService;
+
+  AppProvider({
+    FirebaseService? firebaseService,
+    BibleService? bibleService,
+  })  : _firebaseService = firebaseService ?? FirebaseService.instance,
+        _bibleService = bibleService ?? BibleService.instance;
 
   // 인증 상태
   User? _firebaseUser;
