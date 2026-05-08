@@ -12,7 +12,10 @@ class FirebaseService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: '70879729412-fhr1b81lphpecpngaba7ehllb4ifjkue.apps.googleusercontent.com',
+    scopes: ['email', 'profile'],
+  );
   final Uuid _uuid = const Uuid();
 
   // ===== 인증 =====
