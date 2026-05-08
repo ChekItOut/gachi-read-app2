@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/bible_constants.dart';
 import '../../providers/demo_provider.dart';
 import '../../widgets/common_widgets.dart';
+import 'demo_reflection_screen.dart';
 
 class DemoReadingScreen extends StatefulWidget {
   const DemoReadingScreen({super.key});
@@ -40,10 +41,24 @@ class _DemoReadingScreenState extends State<DemoReadingScreen> {
     final provider = context.watch<DemoProvider>();
     final bookName = BibleConstants.getBookName(provider.currentBook);
 
+    // 장 단위일 때 타이틀 표시
+    String appBarTitle;
+    if (provider.readingUnit == ReadingUnit.chapter) {
+      if (provider.dailyAmount == 1) {
+        appBarTitle = '$bookName ${provider.currentChapter}장';
+      } else {
+        appBarTitle =
+            '$bookName ${provider.currentChapter}-${provider.currentChapter + provider.dailyAmount - 1}장';
+      }
+    } else {
+      appBarTitle =
+          '$bookName ${provider.currentChapter}장 ${provider.startVerse}-${provider.endVerse}절';
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('$bookName ${provider.currentChapter}장'),
+        title: Text(appBarTitle),
         backgroundColor: AppColors.background,
         elevation: 0,
       ),
@@ -67,12 +82,14 @@ class _DemoReadingScreenState extends State<DemoReadingScreen> {
                     const Icon(Icons.bookmark,
                         color: AppColors.primary, size: 18),
                     const SizedBox(width: 8),
-                    Text(
-                      '오늘의 범위: ${provider.startVerse}~${provider.endVerse}절',
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary),
+                    Expanded(
+                      child: Text(
+                        '오늘의 범위: ${provider.todayRangeText}',
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary),
+                      ),
                     ),
                   ]),
                 ),
@@ -81,67 +98,80 @@ class _DemoReadingScreenState extends State<DemoReadingScreen> {
                 ...provider.todayVerses.map((verse) {
                   final verseNum = verse['verse'] as int;
                   final content = verse['content'] as String;
-                  final isInRange = verseNum >= provider.startVerse &&
-                      verseNum <= provider.endVerse;
+                  final chapterNum = verse['chapterNum'] as int?;
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isInRange
-                          ? AppColors.surface
-                          : AppColors.surface.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(16),
-                      border: isInRange
-                          ? Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              width: 1.5)
-                          : null,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: isInRange
-                                ? AppColors.primary
-                                : AppColors.chipBackground,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
+                  // 장 단위일 때 장 구분 헤더
+                  final showChapterHeader = provider.readingUnit ==
+                          ReadingUnit.chapter &&
+                      chapterNum != null &&
+                      verseNum == 1;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showChapterHeader)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              top: 16, bottom: 8),
                           child: Text(
-                            '$verseNum',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: isInRange
-                                  ? Colors.white
-                                  : AppColors.secondaryText,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            content,
-                            style: TextStyle(
+                            '$bookName $chapterNum장',
+                            style: const TextStyle(
                               fontSize: 16,
-                              height: 1.7,
-                              color: isInRange
-                                  ? AppColors.primaryText
-                                  : AppColors.secondaryText,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.15),
+                              width: 1),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$verseNum',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                content,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.7,
+                                  color: AppColors.primaryText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   );
                 }),
 
                 const SizedBox(height: 20),
-                // 스크롤 유도
                 if (!_hasScrolledToBottom)
                   Center(
                     child: Column(children: [
@@ -173,15 +203,15 @@ class _DemoReadingScreenState extends State<DemoReadingScreen> {
                       await context
                           .read<DemoProvider>()
                           .completeReading();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('오늘의 말씀을 완료했어요! 🎉'),
-                            backgroundColor: AppColors.primary,
-                          ),
-                        );
-                        Navigator.pop(context);
-                      }
+                      if (!context.mounted) return;
+
+                      // 읽기 완료 후 소감 작성 화면으로 바로 이동
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DemoReflectionScreen(),
+                        ),
+                      );
                     },
               isLoading: provider.isLoading,
             ),

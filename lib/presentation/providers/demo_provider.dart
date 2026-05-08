@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../data/services/bible_service.dart';
+import '../../core/constants/bible_constants.dart';
+
+/// 읽기 단위 타입
+enum ReadingUnit { chapter, verse }
 
 class DemoProvider extends ChangeNotifier {
   // 앱 상태
@@ -14,6 +18,10 @@ class DemoProvider extends ChangeNotifier {
   // 사용자 정보
   String _myName = '나';
   String _partnerName = '파트너';
+
+  // 읽기 플랜 설정
+  ReadingUnit _readingUnit = ReadingUnit.chapter; // 장 단위 or 절 단위
+  int _dailyAmount = 1;   // 하루에 몇 장 or 몇 절
 
   // 성경 읽기 상태
   String _currentBook = '창';
@@ -54,6 +62,8 @@ class DemoProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get myName => _myName;
   String get partnerName => _partnerName;
+  ReadingUnit get readingUnit => _readingUnit;
+  int get dailyAmount => _dailyAmount;
   String get currentBook => _currentBook;
   int get currentChapter => _currentChapter;
   int get startVerse => _startVerse;
@@ -70,12 +80,26 @@ class DemoProvider extends ChangeNotifier {
   String get freeBibleBook => _freeBibleBook;
   int get freeBibleChapter => _freeBibleChapter;
 
+  /// 오늘 읽기 범위 요약 텍스트 (예: "창세기 1장 1-10절" or "창세기 1-2장")
+  String get todayRangeText {
+    final bookName = BibleConstants.getBookName(_currentBook);
+    if (_readingUnit == ReadingUnit.verse) {
+      return '$bookName ${_currentChapter}장 ${_startVerse}-${_endVerse}절';
+    } else {
+      if (_dailyAmount == 1) {
+        return '$bookName ${_currentChapter}장';
+      } else {
+        return '$bookName ${_currentChapter}-${_currentChapter + _dailyAmount - 1}장';
+      }
+    }
+  }
+
   String get todayDateString {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  // 로그인 (데모)
+  // ─── 로그인 (데모) ───────────────────────────────────────────────────────
   Future<void> demoLogin(String name) async {
     _setLoading(true);
     await Future.delayed(const Duration(milliseconds: 800));
@@ -84,7 +108,7 @@ class DemoProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // 커플 연결 (데모)
+  // ─── 커플 연결 (데모) ────────────────────────────────────────────────────
   Future<void> connectCouple(String partnerName) async {
     _setLoading(true);
     await Future.delayed(const Duration(milliseconds: 600));
@@ -94,37 +118,74 @@ class DemoProvider extends ChangeNotifier {
     final now = DateTime.now();
     for (int i = 1; i <= 3; i++) {
       final d = now.subtract(Duration(days: i));
-      _completedDates.add('${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+      _completedDates.add(
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
     }
     _setLoading(false);
   }
 
-  // 읽기 플랜 설정 (데모)
+  // ─── 읽기 플랜 설정 ──────────────────────────────────────────────────────
   Future<void> setReadingPlan({
     required String book,
     required int chapter,
-    required int startVerse,
-    required int dailyChapters,
+    required ReadingUnit unit,
+    required int dailyAmount,
+    int startVerse = 1,
   }) async {
     _setLoading(true);
     await Future.delayed(const Duration(milliseconds: 500));
     _hasReadingPlan = true;
     _currentBook = book;
     _currentChapter = chapter;
-    _startVerse = startVerse;
-    _endVerse = startVerse + 9;
+    _readingUnit = unit;
+    _dailyAmount = dailyAmount;
+
+    if (unit == ReadingUnit.verse) {
+      _startVerse = startVerse;
+      _endVerse = startVerse + dailyAmount - 1;
+    } else {
+      // 장 단위: 해당 장 전체
+      _startVerse = 1;
+      final totalVerses =
+          BibleService.instance.getVerses(book, chapter).length;
+      _endVerse = totalVerses;
+    }
+
     await _loadTodayVerses();
     _setLoading(false);
   }
 
-  // 오늘의 성경 구절 로드
+  // ─── 오늘의 성경 구절 로드 ───────────────────────────────────────────────
   Future<void> _loadTodayVerses() async {
-    final verses = BibleService.instance.getVerses(_currentBook, _currentChapter);
-    if (verses.isNotEmpty) {
-      final end = (_endVerse < verses.length) ? _endVerse : verses.length;
-      _todayVerses = verses
-          .where((v) => v['verse'] >= _startVerse && v['verse'] <= end)
-          .toList();
+    if (_readingUnit == ReadingUnit.chapter) {
+      // 장 단위: dailyAmount만큼 여러 장 합산
+      List<Map<String, dynamic>> allVerses = [];
+      for (int i = 0; i < _dailyAmount; i++) {
+        final chap = _currentChapter + i;
+        final totalChapters =
+            BibleService.instance.getChapterCount(_currentBook);
+        if (chap > totalChapters) break;
+        final verses = BibleService.instance.getVerses(_currentBook, chap);
+        // 장 번호 정보 추가
+        for (final v in verses) {
+          allVerses.add({...v, 'chapterNum': chap});
+        }
+      }
+      _todayVerses = allVerses;
+      // endVerse를 마지막 절로 업데이트
+      if (allVerses.isNotEmpty) {
+        _endVerse = allVerses.last['verse'] as int;
+      }
+    } else {
+      // 절 단위
+      final verses =
+          BibleService.instance.getVerses(_currentBook, _currentChapter);
+      if (verses.isNotEmpty) {
+        final end = (_endVerse <= verses.length) ? _endVerse : verses.length;
+        _todayVerses = verses
+            .where((v) => v['verse'] >= _startVerse && v['verse'] <= end)
+            .toList();
+      }
     }
   }
 
@@ -136,7 +197,7 @@ class DemoProvider extends ChangeNotifier {
     }
   }
 
-  // 읽기 완료 처리
+  // ─── 읽기 완료 처리 ──────────────────────────────────────────────────────
   Future<void> completeReading() async {
     _setLoading(true);
     await Future.delayed(const Duration(milliseconds: 500));
@@ -154,22 +215,23 @@ class DemoProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // 소감 저장
+  // ─── 소감 저장 ───────────────────────────────────────────────────────────
   Future<void> saveMyReflection(String content) async {
     _setLoading(true);
     await Future.delayed(const Duration(milliseconds: 400));
     _myReflection = content;
     _isMyReflectionDone = true;
-    // 데모: 파트너도 자동으로 소감 작성 (3초 후)
+    // 데모: 파트너도 2초 후 자동으로 소감 작성
     Future.delayed(const Duration(seconds: 2), () {
-      _partnerReflection = '오늘 말씀을 읽으면서 하나님의 사랑이 얼마나 크고 넓은지 다시 한번 느꼈어요. 특히 "${_currentChapter}장 말씀이 마음에 깊이 와닿았고, 우리 관계에서도 이런 사랑을 실천하고 싶다는 생각이 들었어요.';
+      _partnerReflection =
+          '오늘 말씀을 읽으면서 하나님의 사랑이 얼마나 크고 넓은지 다시 한번 느꼈어요. 특히 ${_currentChapter}장 말씀이 마음에 깊이 와닿았고, 우리 관계에서도 이런 사랑을 실천하고 싶다는 생각이 들었어요.';
       _isPartnerReflectionDone = true;
       notifyListeners();
     });
     _setLoading(false);
   }
 
-  // AI 질문 생성 (데모)
+  // ─── AI 질문 생성 (데모) ─────────────────────────────────────────────────
   Future<void> generateAiQuestions() async {
     _setLoading(true);
     await Future.delayed(const Duration(seconds: 2));
@@ -182,20 +244,19 @@ class DemoProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // 자유 읽기 - 책/장 변경
+  // ─── 자유 읽기 ───────────────────────────────────────────────────────────
   void setFreeBiblePosition(String book, int chapter) {
     _freeBibleBook = book;
     _freeBibleChapter = chapter;
     notifyListeners();
   }
 
-  // 자유 읽기 - 장 이동
   void goToNextChapter() {
-    final totalChapters = BibleService.instance.getChapterCount(_freeBibleBook);
+    final totalChapters =
+        BibleService.instance.getChapterCount(_freeBibleBook);
     if (_freeBibleChapter < totalChapters) {
       _freeBibleChapter++;
     } else {
-      // 다음 책으로
       final books = BibleService.instance.getBookList();
       final idx = books.indexOf(_freeBibleBook);
       if (idx < books.length - 1) {
@@ -214,13 +275,14 @@ class DemoProvider extends ChangeNotifier {
       final idx = books.indexOf(_freeBibleBook);
       if (idx > 0) {
         _freeBibleBook = books[idx - 1];
-        _freeBibleChapter = BibleService.instance.getChapterCount(_freeBibleBook);
+        _freeBibleChapter =
+            BibleService.instance.getChapterCount(_freeBibleBook);
       }
     }
     notifyListeners();
   }
 
-  // 구절 저장
+  // ─── 구절 저장/삭제 ──────────────────────────────────────────────────────
   void saveVerse(String bookCode, int chapter, int verse, String content) {
     final ref = '$bookCode $chapter:$verse';
     final exists = _savedVerses.any((v) => v['reference'] == ref);
@@ -236,13 +298,12 @@ class DemoProvider extends ChangeNotifier {
     }
   }
 
-  // 구절 삭제
   void deleteVerse(String reference) {
     _savedVerses.removeWhere((v) => v['reference'] == reference);
     notifyListeners();
   }
 
-  // 로그아웃
+  // ─── 로그아웃 ────────────────────────────────────────────────────────────
   void logout() {
     _isLoggedIn = false;
     _hasCoupleConnected = false;
