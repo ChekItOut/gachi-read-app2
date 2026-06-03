@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
@@ -13,7 +14,9 @@ class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: '70879729412-fhr1b81lphpecpngaba7ehllb4ifjkue.apps.googleusercontent.com',
+    clientId: kIsWeb
+        ? '70879729412-fhr1b81lphpecpngaba7ehllb4ifjkue.apps.googleusercontent.com'
+        : null,
     scopes: ['email', 'profile'],
   );
   final Uuid _uuid = const Uuid();
@@ -141,8 +144,14 @@ class FirebaseService {
     });
 
     // 양쪽 사용자에 coupleId 업데이트
-    await _db.collection('users').doc(creatorId).update({'coupleId': coupleRef.id});
-    await _db.collection('users').doc(userId).update({'coupleId': coupleRef.id});
+    await _db
+        .collection('users')
+        .doc(creatorId)
+        .update({'coupleId': coupleRef.id});
+    await _db
+        .collection('users')
+        .doc(userId)
+        .update({'coupleId': coupleRef.id});
 
     // 초대 코드 사용 처리
     await inviteDoc.reference.update({'used': true});
@@ -157,20 +166,23 @@ class FirebaseService {
   }
 
   Future<void> disconnectCouple(String coupleId, String userId) async {
-    // 커플 문서 삭제
-    await _db.collection('couples').doc(coupleId).delete();
-
-    // 양쪽 사용자의 coupleId 초기화
+    // 커플 문서를 먼저 조회하여 양쪽 사용자 ID 확보
     final coupleDoc = await _db.collection('couples').doc(coupleId).get();
+
+    final batch = _db.batch();
+
     if (coupleDoc.exists) {
       final data = coupleDoc.data()!;
-      final user1Id = data['user1Id'];
-      final user2Id = data['user2Id'];
-      await _db.collection('users').doc(user1Id).update({'coupleId': null});
-      await _db.collection('users').doc(user2Id).update({'coupleId': null});
+      final user1Id = data['user1Id'] as String;
+      final user2Id = data['user2Id'] as String;
+      batch.update(_db.collection('users').doc(user1Id), {'coupleId': null});
+      batch.update(_db.collection('users').doc(user2Id), {'coupleId': null});
     } else {
-      await _db.collection('users').doc(userId).update({'coupleId': null});
+      batch.update(_db.collection('users').doc(userId), {'coupleId': null});
     }
+
+    batch.delete(_db.collection('couples').doc(coupleId));
+    await batch.commit();
   }
 
   // ===== 읽기 플랜 =====
@@ -187,6 +199,20 @@ class FirebaseService {
     }
 
     await _db.collection('readingPlans').add(plan.toFirestore());
+  }
+
+  // 활성 읽기 플랜 실시간 감시
+  Stream<ReadingPlan?> watchActiveReadingPlan(String coupleId) {
+    return _db
+        .collection('readingPlans')
+        .where('coupleId', isEqualTo: coupleId)
+        .where('isActive', isEqualTo: true)
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      return ReadingPlan.fromFirestore(snap.docs.first);
+    });
   }
 
   Future<ReadingPlan?> getActiveReadingPlan(String coupleId) async {
@@ -216,13 +242,30 @@ class FirebaseService {
   }
 
   Future<void> markReadingComplete(
-      String coupleId, String userId, String date,
-      String bookCode, int chapter, int startVerse, int endVerse) async {
+    String coupleId,
+    String userId,
+    String date,
+    String bookCode,
+    int chapter,
+    int startVerse,
+    int endVerse, {
+    String? endBookCode,
+    int? endChapter,
+    List<Map<String, dynamic>>? passages,
+    String? rangeText,
+  }) async {
     final existing = await getDailyReading(coupleId, userId, date);
+    final rangeFields = {
+      if (endBookCode != null) 'endBookCode': endBookCode,
+      if (endChapter != null) 'endChapter': endChapter,
+      if (passages != null) 'passages': passages,
+      if (rangeText != null) 'rangeText': rangeText,
+    };
     if (existing != null) {
       await _db.collection('dailyReadings').doc(existing.id).update({
         'isCompleted': true,
         'completedAt': FieldValue.serverTimestamp(),
+        ...rangeFields,
       });
     } else {
       await _db.collection('dailyReadings').add({
@@ -235,6 +278,7 @@ class FirebaseService {
         'endVerse': endVerse,
         'isCompleted': true,
         'completedAt': FieldValue.serverTimestamp(),
+        ...rangeFields,
       });
     }
   }
@@ -256,6 +300,23 @@ class FirebaseService {
     return query.docs.map((doc) => DailyReading.fromFirestore(doc)).toList();
   }
 
+  // 플랜 시작일 이후 커플의 완료된 읽기 고유 날짜 수 카운트
+  Future<int> getCompletedDaysCount(String coupleId, DateTime planStartDate) async {
+    final startDateStr = DateFormat('yyyy-MM-dd').format(planStartDate);
+    final query = await _db
+        .collection('dailyReadings')
+        .where('coupleId', isEqualTo: coupleId)
+        .where('isCompleted', isEqualTo: true)
+        .where('date', isGreaterThanOrEqualTo: startDateStr)
+        .get();
+
+    // 고유한 날짜 수 카운트 (커플 중 한 명이라도 완료하면 1일로 카운트)
+    final uniqueDates = query.docs
+        .map((doc) => (doc.data())['date'] as String)
+        .toSet();
+    return uniqueDates.length;
+  }
+
   // ===== 소감 =====
 
   Future<void> saveReflection(Reflection reflection) async {
@@ -269,6 +330,22 @@ class FirebaseService {
     } else {
       await _db.collection('reflections').add(reflection.toFirestore());
     }
+  }
+
+  // 파트너 소감 실시간 감시
+  Stream<Reflection?> watchPartnerReflection(
+      String coupleId, String partnerId, String date) {
+    return _db
+        .collection('reflections')
+        .where('coupleId', isEqualTo: coupleId)
+        .where('userId', isEqualTo: partnerId)
+        .where('date', isEqualTo: date)
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      return Reflection.fromFirestore(snap.docs.first);
+    });
   }
 
   Future<Reflection?> getReflection(
@@ -304,7 +381,8 @@ class FirebaseService {
 
   Future<void> saveAiDiscussion(AiDiscussion discussion) async {
     // 기존 것 있으면 업데이트
-    final existing = await getAiDiscussion(discussion.coupleId, discussion.date);
+    final existing =
+        await getAiDiscussion(discussion.coupleId, discussion.date);
     if (existing != null) {
       await _db.collection('aiDiscussions').doc(existing.id).update({
         'questions': discussion.questions,
@@ -326,6 +404,24 @@ class FirebaseService {
     return AiDiscussion.fromFirestore(query.docs.first);
   }
 
+  Future<List<AiDiscussion>> getMonthlyAiDiscussions(
+      String coupleId, int year, int month) async {
+    final startDate = '$year-${month.toString().padLeft(2, '0')}-01';
+    final endDate = '$year-${month.toString().padLeft(2, '0')}-31';
+
+    final query = await _db
+        .collection('aiDiscussions')
+        .where('coupleId', isEqualTo: coupleId)
+        .get();
+
+    return query.docs
+        .map((doc) => AiDiscussion.fromFirestore(doc))
+        .where((discussion) =>
+            discussion.date.compareTo(startDate) >= 0 &&
+            discussion.date.compareTo(endDate) <= 0)
+        .toList();
+  }
+
   // ===== 저장된 구절 =====
 
   Future<void> saveVerse(SavedVerse verse) async {
@@ -345,14 +441,31 @@ class FirebaseService {
     await _db.collection('savedVerses').doc(verseId).delete();
   }
 
+  // 그룹 단위 삭제 (book+chapter의 특정 구절들)
+  Future<void> deleteVersesByGroup(
+      String userId, String bookCode, int chapter) async {
+    final query = await _db
+        .collection('savedVerses')
+        .where('userId', isEqualTo: userId)
+        .where('bookCode', isEqualTo: bookCode)
+        .where('chapter', isEqualTo: chapter)
+        .get();
+    for (final doc in query.docs) {
+      await doc.reference.delete();
+    }
+  }
+
   Stream<List<SavedVerse>> watchSavedVerses(String userId) {
     return _db
         .collection('savedVerses')
         .where('userId', isEqualTo: userId)
-        .orderBy('savedAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => SavedVerse.fromFirestore(doc)).toList());
+        .map((snap) {
+      final verses =
+          snap.docs.map((doc) => SavedVerse.fromFirestore(doc)).toList();
+      verses.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+      return verses;
+    });
   }
 
   // ===== 스트릭 =====
@@ -390,7 +503,8 @@ class FirebaseService {
     int longestStreak = data['longestStreak'] ?? 0;
 
     if (lastReadDate != null) {
-      final lastDay = DateTime(lastReadDate.year, lastReadDate.month, lastReadDate.day);
+      final lastDay =
+          DateTime(lastReadDate.year, lastReadDate.month, lastReadDate.day);
       final todayDay = DateTime(today.year, today.month, today.day);
       final diff = todayDay.difference(lastDay);
 
@@ -429,9 +543,15 @@ class FirebaseService {
 
     // 월별 읽기 기록 가져오기
     final myReadings = await getMonthlyReadings(coupleId, myUid, year, m);
-    final partnerReadings = await getMonthlyReadings(coupleId, partnerId, year, m);
+    final partnerReadings =
+        await getMonthlyReadings(coupleId, partnerId, year, m);
     final myReflections = await getMonthlyReflections(coupleId, myUid, year, m);
-    final partnerReflections = await getMonthlyReflections(coupleId, partnerId, year, m);
+    final partnerReflections =
+        await getMonthlyReflections(coupleId, partnerId, year, m);
+    final aiDiscussions =
+        await getMonthlyAiDiscussions(coupleId, year, m).catchError((Object e) {
+      return <AiDiscussion>[];
+    });
 
     final Map<String, Map<String, dynamic>> result = {};
 
@@ -465,11 +585,20 @@ class FirebaseService {
       result[reflection.date]!['partnerReflection'] = reflection.content;
     }
 
+    // AI 대화 질문 처리
+    for (final discussion in aiDiscussions) {
+      result[discussion.date] ??= {};
+      result[discussion.date]!['aiQuestions'] = discussion.questions;
+      result[discussion.date]!['aiDiscussionCreatedAt'] =
+          discussion.createdAt.toIso8601String();
+    }
+
     // 둘 다 소감 완료 여부 계산
     for (final date in result.keys) {
       final hasMyReflection = result[date]!['myReflection'] != null;
       final hasPartnerReflection = result[date]!['partnerReflection'] != null;
-      result[date]!['bothReflectionDone'] = hasMyReflection && hasPartnerReflection;
+      result[date]!['bothReflectionDone'] =
+          hasMyReflection && hasPartnerReflection;
     }
 
     return result;

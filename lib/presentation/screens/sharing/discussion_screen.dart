@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/constants/bible_constants.dart';
+import '../../../data/models/app_models.dart';
+import '../../../data/services/ai_service.dart';
 import '../../../data/services/bible_service.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
@@ -14,7 +15,20 @@ class DiscussionScreen extends StatefulWidget {
 }
 
 class _DiscussionScreenState extends State<DiscussionScreen> {
+  static const _defaultQuestionAutoRetryCooldown = Duration(hours: 1);
+
   bool _isGenerating = false;
+
+  bool _shouldAutoGenerate(AiDiscussion? aiDiscussion) {
+    if (aiDiscussion == null) return true;
+    if (!AiService.instance.isDefaultQuestions(aiDiscussion.questions)) {
+      return false;
+    }
+
+    final nextRetryAt =
+        aiDiscussion.createdAt.add(_defaultQuestionAutoRetryCooldown);
+    return DateTime.now().isAfter(nextRetryAt);
+  }
 
   Future<void> _generateQuestions() async {
     setState(() => _isGenerating = true);
@@ -24,15 +38,10 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
       if (todayReading == null) return;
 
       final bibleService = BibleService.instance;
-      final verses = bibleService.getVerseRange(
-        todayReading['bookCode'],
-        todayReading['chapter'],
-        todayReading['startVerse'],
-        todayReading['endVerse'],
-      );
+      final verses = bibleService.getReadingVerses(todayReading);
 
       await provider.generateAiDiscussion(
-        verses.map((v) => '${v.verse}절: ${v.content}').toList(),
+        verses.map((v) => '${v.reference}: ${v.content}').toList(),
       );
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -44,7 +53,8 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<AppProvider>();
-      if (provider.aiDiscussion == null &&
+
+      if (_shouldAutoGenerate(provider.aiDiscussion) &&
           provider.isTodayReflectionDone &&
           provider.isPartnerReflectionDone) {
         _generateQuestions();
@@ -58,10 +68,9 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
     final aiDiscussion = provider.aiDiscussion;
     final todayReading = provider.todayReading;
 
-    final bookName = todayReading != null
-        ? BibleConstants.getBookName(todayReading['bookCode'])
+    final rangeText = todayReading != null
+        ? BibleService.instance.formatReadingRange(todayReading)
         : '';
-    final chapter = todayReading?['chapter'] ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -74,7 +83,7 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 헤더 카드
-            _buildHeaderCard(bookName, chapter.toString()),
+            _buildHeaderCard(rangeText),
             const SizedBox(height: 24),
 
             // 소감 요약
@@ -89,6 +98,15 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
             else
               _buildGenerateCard(),
 
+            // 홈으로 돌아가기 버튼
+            const SizedBox(height: 8),
+            PrimaryButton(
+              text: '홈으로 돌아가기',
+              onPressed: () =>
+                  Navigator.of(context).popUntil((route) => route.isFirst),
+              icon: Icons.home_outlined,
+            ),
+
             const SizedBox(height: 40),
           ],
         ),
@@ -96,7 +114,7 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
     );
   }
 
-  Widget _buildHeaderCard(String bookName, String chapter) {
+  Widget _buildHeaderCard(String rangeText) {
     return SoftCard(
       backgroundColor: const Color(0xFFF3EEFF),
       child: Row(
@@ -108,7 +126,8 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
               color: AppColors.purple.withOpacity(0.15),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.auto_awesome, color: AppColors.purple, size: 28),
+            child: const Icon(Icons.auto_awesome,
+                color: AppColors.purple, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -121,7 +140,7 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$bookName $chapter장 기반',
+                  '$rangeText 기반',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.secondaryText,
                       ),
@@ -200,7 +219,9 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
   }
 
   Widget _buildLoadingCard() {
-    return AppCard(
+    return SizedBox(
+      width: double.infinity,
+      child: AppCard(
       child: Column(
         children: [
           const SizedBox(height: 16),
@@ -224,6 +245,7 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
           const SizedBox(height: 16),
         ],
       ),
+      ),
     );
   }
 
@@ -237,10 +259,12 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
             const Spacer(),
             TextButton.icon(
               onPressed: _generateQuestions,
-              icon: const Icon(Icons.refresh, size: 16, color: AppColors.purple),
+              icon:
+                  const Icon(Icons.refresh, size: 16, color: AppColors.purple),
               label: const Text(
                 '재생성',
-                style: TextStyle(color: AppColors.purple, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: AppColors.purple, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -297,7 +321,8 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
           ),
           child: const Row(
             children: [
-              Icon(Icons.tips_and_updates_outlined, color: AppColors.primary, size: 20),
+              Icon(Icons.tips_and_updates_outlined,
+                  color: AppColors.primary, size: 20),
               SizedBox(width: 12),
               Expanded(
                 child: Text(

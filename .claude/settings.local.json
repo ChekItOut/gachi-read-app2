@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub upgrade:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(firebase deploy:*)",
+      "WebSearch",
+      "WebFetch(domain:help.manus.im)",
+      "Bash(flutter run:*)",
+      "Bash(flutter pub get:*)",
+      "WebFetch(domain:pub.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}

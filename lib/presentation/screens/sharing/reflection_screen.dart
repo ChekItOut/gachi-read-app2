@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/constants/bible_constants.dart';
+import '../../../core/utils/page_transitions.dart';
+import '../../../data/services/bible_service.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 import 'discussion_screen.dart';
@@ -64,7 +65,7 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
         // 파트너 소감 확인 화면으로 이동
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const ReflectionViewScreen()),
+          SharedAxisPageRoute(builder: (_) => const ReflectionViewScreen()),
         );
       }
     } catch (e) {
@@ -82,10 +83,9 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final todayReading = provider.todayReading;
-    final bookName = todayReading != null
-        ? BibleConstants.getBookName(todayReading['bookCode'])
+    final rangeText = todayReading != null
+        ? BibleService.instance.formatReadingRange(todayReading)
         : '';
-    final chapter = todayReading?['chapter'] ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -105,7 +105,8 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
                   backgroundColor: AppColors.softMint,
                   child: Row(
                     children: [
-                      const Icon(Icons.menu_book, color: AppColors.primary, size: 24),
+                      const Icon(Icons.menu_book,
+                          color: AppColors.primary, size: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -116,7 +117,7 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
                               style: Theme.of(context).textTheme.labelLarge,
                             ),
                             Text(
-                              '$bookName $chapter장',
+                              rangeText,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ],
@@ -155,7 +156,8 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
                   maxLines: 10,
                   minLines: 8,
                   decoration: InputDecoration(
-                    hintText: '오늘 말씀을 읽으며 어떤 생각이 들었나요?\n파트너와 나누고 싶은 이야기를 적어보세요...',
+                    hintText:
+                        '오늘 말씀을 읽으며 어떤 생각이 들었나요?\n파트너와 나누고 싶은 이야기를 적어보세요...',
                     hintStyle: TextStyle(
                       color: AppColors.secondaryText.withOpacity(0.6),
                       fontSize: 15,
@@ -224,7 +226,8 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
     final myReflection = provider.myReflection;
     final partnerReflection = provider.partnerReflection;
     final partner = provider.partner;
-    final bothDone = provider.isTodayReflectionDone && provider.isPartnerReflectionDone;
+    final bothDone =
+        provider.isTodayReflectionDone && provider.isPartnerReflectionDone;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -235,11 +238,12 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
             TextButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ReflectionScreen()),
+                SharedAxisPageRoute(builder: (_) => const ReflectionScreen()),
               ),
               child: const Text(
                 '수정',
-                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: AppColors.primary, fontWeight: FontWeight.w700),
               ),
             ),
         ],
@@ -261,7 +265,7 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
                 isMe: true,
                 onWrite: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ReflectionScreen()),
+                  SharedAxisPageRoute(builder: (_) => const ReflectionScreen()),
                 ),
               ),
               const SizedBox(height: 16),
@@ -279,6 +283,17 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
               if (bothDone) ...[
                 const SizedBox(height: 24),
                 _buildAiDiscussionCard(provider),
+              ],
+
+              // 파트너 대기 중일 때 홈으로 돌아가기 버튼
+              if (myReflection != null && !provider.isPartnerReflectionDone) ...[
+                const SizedBox(height: 24),
+                PrimaryButton(
+                  text: '홈으로 돌아가기',
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((route) => route.isFirst),
+                  icon: Icons.home_outlined,
+                ),
               ],
 
               const SizedBox(height: 40),
@@ -365,7 +380,8 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.lock_outline, color: AppColors.secondaryText, size: 20),
+                  Icon(Icons.lock_outline,
+                      color: AppColors.secondaryText, size: 20),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -388,7 +404,8 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.hourglass_empty, color: AppColors.secondaryText, size: 20),
+                  const Icon(Icons.hourglass_empty,
+                      color: AppColors.secondaryText, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -427,7 +444,8 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
                   color: AppColors.purple.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.auto_awesome, color: AppColors.purple, size: 24),
+                child: const Icon(Icons.auto_awesome,
+                    color: AppColors.purple, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -456,7 +474,7 @@ class _ReflectionViewScreenState extends State<ReflectionViewScreen> {
             child: ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const DiscussionScreen()),
+                SharedAxisPageRoute(builder: (_) => const DiscussionScreen()),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.purple,

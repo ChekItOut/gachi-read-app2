@@ -15,7 +15,8 @@ class BibleVerse {
     required this.content,
   });
 
-  String get reference => '${BibleConstants.getBookName(bookCode)} $chapter:$verse';
+  String get reference =>
+      '${BibleConstants.getBookName(bookCode)} $chapter:$verse';
   String get key => '$bookCode$chapter:$verse';
 }
 
@@ -29,7 +30,8 @@ class BibleService {
 
   Future<void> loadBible() async {
     if (_isLoaded) return;
-    final String jsonString = await rootBundle.loadString('assets/data/bible.json');
+    final String jsonString =
+        await rootBundle.loadString('assets/data/bible.json');
     _bibleData = Map<String, String>.from(json.decode(jsonString));
     _isLoaded = true;
   }
@@ -136,25 +138,22 @@ class BibleService {
     return null;
   }
 
-  // 오늘의 읽기 범위 계산 (플랜 기반)
+  // 오늘의 읽기 범위 계산 (완료 횟수 기반)
   Map<String, dynamic> calculateTodayReading({
     required String startBook,
     required int startChapter,
     required int startVerse,
     required int dailyChapters,
     required int dailyVerses,
-    required DateTime planStartDate,
+    required int completedDays,
   }) {
-    final today = DateTime.now();
-    final daysSinceStart = today.difference(planStartDate).inDays;
-
     String currentBook = startBook;
     int currentChapter = startChapter;
     int currentStartVerse = startVerse;
 
     if (dailyChapters > 0) {
       // 장 단위 읽기
-      int totalChaptersToSkip = daysSinceStart * dailyChapters;
+      int totalChaptersToSkip = completedDays * dailyChapters;
       int chaptersSkipped = 0;
 
       while (chaptersSkipped < totalChaptersToSkip) {
@@ -174,16 +173,54 @@ class BibleService {
         chaptersSkipped++;
       }
 
-      final endVerse = getVerseCount(currentBook, currentChapter);
+      final passages = <Map<String, dynamic>>[];
+      String passageBook = currentBook;
+      int passageChapter = currentChapter;
+      final firstStartVerse = totalChaptersToSkip == 0 ? currentStartVerse : 1;
+
+      for (int i = 0; i < dailyChapters; i++) {
+        final totalVerses = getVerseCount(passageBook, passageChapter);
+        if (totalVerses <= 0) break;
+
+        passages.add({
+          'bookCode': passageBook,
+          'chapter': passageChapter,
+          'startVerse': i == 0 ? firstStartVerse : 1,
+          'endVerse': totalVerses,
+        });
+
+        if (i < dailyChapters - 1) {
+          final next = getNextChapter(passageBook, passageChapter);
+          if (next == null) break;
+          passageBook = next['bookCode'];
+          passageChapter = next['chapter'];
+        }
+      }
+
+      if (passages.isEmpty) {
+        return {
+          'bookCode': currentBook,
+          'chapter': currentChapter,
+          'startVerse': currentStartVerse,
+          'endVerse': currentStartVerse,
+        };
+      }
+
+      final firstPassage = passages.first;
+      final lastPassage = passages.last;
       return {
-        'bookCode': currentBook,
-        'chapter': currentChapter,
-        'startVerse': 1,
-        'endVerse': endVerse,
+        'bookCode': firstPassage['bookCode'],
+        'chapter': firstPassage['chapter'],
+        'startVerse': firstPassage['startVerse'],
+        'endVerse': firstPassage['endVerse'],
+        'endBookCode': lastPassage['bookCode'],
+        'endChapter': lastPassage['chapter'],
+        'passages': passages,
+        'rangeText': formatReadingRange({'passages': passages}),
       };
     } else {
       // 절 단위 읽기
-      int totalVersesToSkip = daysSinceStart * dailyVerses;
+      int totalVersesToSkip = completedDays * dailyVerses;
       int versesSkipped = 0;
       int currentVerse = currentStartVerse;
 
@@ -206,22 +243,85 @@ class BibleService {
 
       final endVerse = (currentVerse + dailyVerses - 1)
           .clamp(currentVerse, getVerseCount(currentBook, currentChapter));
+      final passages = [
+        {
+          'bookCode': currentBook,
+          'chapter': currentChapter,
+          'startVerse': currentVerse,
+          'endVerse': endVerse,
+        }
+      ];
       return {
         'bookCode': currentBook,
         'chapter': currentChapter,
         'startVerse': currentVerse,
         'endVerse': endVerse,
+        'endBookCode': currentBook,
+        'endChapter': currentChapter,
+        'passages': passages,
+        'rangeText': formatReadingRange({'passages': passages}),
       };
     }
+  }
+
+  List<BibleVerse> getReadingVerses(Map<String, dynamic> reading) {
+    final passages = reading['passages'];
+    if (passages is List && passages.isNotEmpty) {
+      return passages
+          .whereType<Map>()
+          .expand((passage) => getVerseRange(
+                passage['bookCode'] as String,
+                passage['chapter'] as int,
+                passage['startVerse'] as int,
+                passage['endVerse'] as int,
+              ))
+          .toList();
+    }
+
+    return getVerseRange(
+      reading['bookCode'],
+      reading['chapter'],
+      reading['startVerse'],
+      reading['endVerse'],
+    );
+  }
+
+  String formatReadingRange(Map<String, dynamic> reading) {
+    final explicitRangeText = reading['rangeText'];
+    if (explicitRangeText is String && explicitRangeText.isNotEmpty) {
+      return explicitRangeText;
+    }
+
+    final passages = reading['passages'];
+    if (passages is List && passages.isNotEmpty) {
+      final typedPassages = passages.whereType<Map>().toList();
+      final first = typedPassages.first;
+      final last = typedPassages.last;
+      final firstBookCode = first['bookCode'] as String;
+      final lastBookCode = last['bookCode'] as String;
+      final firstBookName = BibleConstants.getBookName(firstBookCode);
+      final lastBookName = BibleConstants.getBookName(lastBookCode);
+      final firstRef =
+          '$firstBookName ${first['chapter']}:${first['startVerse']}';
+      final lastRef = firstBookCode == lastBookCode
+          ? '${last['chapter']}:${last['endVerse']}'
+          : '$lastBookName ${last['chapter']}:${last['endVerse']}';
+      return '$firstRef-$lastRef';
+    }
+
+    final bookName = BibleConstants.getBookName(reading['bookCode']);
+    return '$bookName ${reading['chapter']}:${reading['startVerse']}-${reading['endVerse']}';
   }
 
   // 장의 구절 목록을 Map 형태로 반환 (demo용)
   List<Map<String, dynamic>> getVerses(String bookCode, int chapter) {
     final verses = getChapter(bookCode, chapter);
-    return verses.map((v) => {
-      'verse': v.verse,
-      'content': v.content,
-    }).toList();
+    return verses
+        .map((v) => {
+              'verse': v.verse,
+              'content': v.content,
+            })
+        .toList();
   }
 
   // 전체 책 코드 목록 반환

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "70879729412",
+    "project_id": "gachibible-580c0",
+    "storage_bucket": "gachibible-580c0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:70879729412:android:9015d357feeeb67963a251",
+        "android_client_info": {
+          "package_name": "com.gachijukja.gachi_read_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "70879729412-glg22mb0k8f47tg7hl6b2en6j7mqa31g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.gachijukja.gachi_read_app",
+            "certificate_hash": "37e937115673b28dadbab26175befa39a2b86df2"
+          }
+        },
+        {
+          "client_id": "70879729412-cme993nper99v2e7ca27gc1o6bitsue0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBup0X44OevuNGFsuZSsH7s-O8SnKkwsyM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "70879729412-cme993nper99v2e7ca27gc1o6bitsue0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

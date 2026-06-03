@@ -1,0 +1,40 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "dailyReadings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "coupleId", "order": "ASCENDING" },
+        { "fieldPath": "isCompleted", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dailyReadings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "isCompleted", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reflections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "coupleId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "aiDiscussions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "coupleId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

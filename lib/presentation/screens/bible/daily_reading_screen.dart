@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/bible_constants.dart';
+import '../../../core/utils/page_transitions.dart';
 import '../../../data/services/bible_service.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
@@ -49,12 +50,7 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
     if (todayReading == null) return;
 
     await _bibleService.loadBible();
-    final verses = _bibleService.getVerseRange(
-      todayReading['bookCode'],
-      todayReading['chapter'],
-      todayReading['startVerse'],
-      todayReading['endVerse'],
-    );
+    final verses = _bibleService.getReadingVerses(todayReading);
 
     setState(() {
       _verses = verses;
@@ -69,7 +65,7 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ReflectionScreen()),
+        SharedAxisPageRoute(builder: (_) => const ReflectionScreen()),
       );
     }
   }
@@ -91,15 +87,12 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
       );
     }
 
-    final bookName = BibleConstants.getBookName(todayReading['bookCode']);
-    final chapter = todayReading['chapter'];
-    final startVerse = todayReading['startVerse'];
-    final endVerse = todayReading['endVerse'];
+    final rangeText = _bibleService.formatReadingRange(todayReading);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('$bookName $chapter:$startVerse-$endVerse'),
+        title: Text(rangeText),
         actions: [
           if (provider.isTodayReadingComplete)
             Container(
@@ -109,11 +102,12 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary))
           : Column(
               children: [
                 // 오늘의 말씀 헤더
-                _buildReadingHeader(bookName, chapter, startVerse, endVerse),
+                _buildReadingHeader(rangeText),
                 // 성경 본문
                 Expanded(
                   child: ListView.builder(
@@ -122,31 +116,50 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
                     itemCount: _verses.length,
                     itemBuilder: (context, index) {
                       final verse = _verses[index];
+                      final showChapterHeader = index == 0 ||
+                          _verses[index - 1].bookCode != verse.bookCode ||
+                          _verses[index - 1].chapter != verse.chapter;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(
-                              width: 32,
-                              child: Text(
-                                '${verse.verse}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
+                            if (showChapterHeader) ...[
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(top: 8, bottom: 12),
+                                child: Text(
+                                  '${BibleConstants.getBookName(verse.bookCode)} ${verse.chapter}장',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                               ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                verse.content,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  height: 1.8,
-                                  color: AppColors.primaryText,
+                            ],
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 32,
+                                  child: Text(
+                                    '${verse.verse}',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                Expanded(
+                                  child: Text(
+                                    verse.content,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      height: 1.8,
+                                      color: AppColors.primaryText,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -161,8 +174,7 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
     );
   }
 
-  Widget _buildReadingHeader(
-      String bookName, int chapter, int startVerse, int endVerse) {
+  Widget _buildReadingHeader(String rangeText) {
     return Container(
       padding: const EdgeInsets.all(20),
       color: AppColors.surface,
@@ -174,7 +186,8 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
               color: AppColors.softMint,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.menu_book, color: AppColors.primary, size: 24),
+            child:
+                const Icon(Icons.menu_book, color: AppColors.primary, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -186,7 +199,7 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 Text(
-                  '$bookName $chapter장 $startVerse-$endVerse절',
+                  rangeText,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
@@ -213,7 +226,7 @@ class _DailyReadingScreenState extends State<DailyReadingScreen> {
               text: '말씀 나누기로 이동',
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const ReflectionScreen()),
+                SharedAxisPageRoute(builder: (_) => const ReflectionScreen()),
               ),
               icon: Icons.chat_bubble_outline,
             )

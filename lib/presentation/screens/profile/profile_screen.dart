@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:animations/animations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/bible_constants.dart';
+import '../../../core/utils/page_transitions.dart';
 import '../../../data/models/app_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../home/reading_plan_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -38,7 +42,10 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 // 커플 정보
                 if (partner != null) ...[
-                  _buildCoupleCard(context, partner, provider),
+                  _buildCoupleCard(context, user, partner, provider),
+                  const SizedBox(height: 20),
+                  // 읽기 플랜 정보
+                  _buildReadingPlanCard(context, provider),
                   const SizedBox(height: 20),
                 ],
                 // 통계
@@ -117,6 +124,30 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  // 레벨별 설명 텍스트
+  String _getFireLevelDescription(int level) {
+    switch (level) {
+      case 2:
+        return '성령의 불꽃이 타오르고 있어요!';
+      case 3:
+        return '성령의 불이 활활 타오르고 있어요!';
+      default:
+        return '말씀의 씨앗이 자라고 있어요';
+    }
+  }
+
+  // 레벨별 이미지 경로
+  String _getFireImagePath(int level) {
+    switch (level) {
+      case 2:
+        return 'assets/images/holy_fire_level2.png';
+      case 3:
+        return 'assets/images/holy_fire_level3.png';
+      default:
+        return 'assets/images/holy_fire_sample.png';
+    }
+  }
+
   Widget _buildFireCard(BuildContext context, ReadingStreak? streak) {
     final currentStreak = streak?.currentStreak ?? 0;
     final longestStreak = streak?.longestStreak ?? 0;
@@ -137,7 +168,7 @@ class ProfileScreen extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Image.asset(
-                    'assets/images/holy_fire_sample.png',
+                    _getFireImagePath(fireLevel),
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -159,6 +190,14 @@ class ProfileScreen extends StatelessWidget {
                         color: AppColors.primary,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _getFireLevelDescription(fireLevel),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -169,15 +208,19 @@ class ProfileScreen extends StatelessWidget {
           _buildLevelProgress(context, currentStreak, fireLevel),
           const SizedBox(height: 20),
           // 통계
+          
+          const SizedBox(height: 16),
+          // 레벨 안내
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Expanded(
-                child: _buildStatItem(context, '현재 연속', '$currentStreak일'),
-              ),
-              Container(width: 1, height: 40, color: AppColors.divider),
-              Expanded(
-                child: _buildStatItem(context, '최장 연속', '$longestStreak일'),
-              ),
+              _levelBadge(context, 1, '기본', fireLevel >= 1),
+              const Icon(Icons.arrow_forward,
+                  size: 16, color: AppColors.secondaryText),
+              _levelBadge(context, 2, '5일+', fireLevel >= 2, onTap: () => _showFirePreview(context, 2)),
+              const Icon(Icons.arrow_forward,
+                  size: 16, color: AppColors.secondaryText),
+              _levelBadge(context, 3, '10일+', fireLevel >= 3, onTap: () => _showFirePreview(context, 3)),
             ],
           ),
         ],
@@ -257,46 +300,163 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCoupleCard(BuildContext context, AppUser partner, AppProvider provider) {
+  Widget _levelBadge(
+      BuildContext context, int level, String label, bool isUnlocked,
+      {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isUnlocked ? AppColors.softMint : AppColors.chipBackground,
+            borderRadius: BorderRadius.circular(14),
+            border: isUnlocked
+                ? Border.all(color: AppColors.primary, width: 2)
+                : null,
+          ),
+          child: Center(
+            child: Text('Lv.$level',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: isUnlocked
+                        ? AppColors.primary
+                        : AppColors.secondaryText)),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11,
+                color: isUnlocked
+                    ? AppColors.primary
+                    : AppColors.secondaryText)),
+      ]),
+    );
+  }
+
+  void _showFirePreview(BuildContext context, int level) {
+    final imagePath = _getFireImagePath(level);
+    final levelName = level == 2 ? '성령의 불꽃' : '성령의 큰 불';
+    final description = level == 2
+        ? '5일 연속 읽기를 달성하면\n이 캐릭터로 변해요!'
+        : '10일 연속 읽기를 달성하면\n이 캐릭터로 변해요!';
+
+    showModal(
+      context: context,
+      configuration: const FadeScaleTransitionConfiguration(
+        barrierColor: Color(0x3C000000),
+      ),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          width: 280,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(25),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 이미지
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppColors.softMint,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset(
+                    imagePath,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 레벨 뱃지
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Level $level · $levelName',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 설명
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              // 닫기 버튼
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.chipBackground,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text(
+                    '확인',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryText,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoupleCard(BuildContext context, AppUser? user, AppUser partner, AppProvider provider) {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: '커플 정보'),
+          const SectionHeader(title: '커플 정보'),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.softBlue,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Center(
-                  child: Text(
-                    partner.displayName.isNotEmpty ? partner.displayName[0] : '?',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(partner.displayName, style: Theme.of(context).textTheme.titleMedium),
-                    Text(partner.email, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.favorite, color: AppColors.primary, size: 20),
-            ],
-          ),
+          Row(children: [
+            _personChip(user?.displayName ?? '사용자', AppColors.softMint),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(Icons.favorite, color: AppColors.primary, size: 20),
+            ),
+            _personChip(partner.displayName, AppColors.softBlue),
+          ]),
           const SizedBox(height: 16),
           OutlineButton(
             text: '커플 연결 해제',
@@ -308,73 +468,152 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsCard(BuildContext context, AppProvider provider) {
+  Widget _buildReadingPlanCard(BuildContext context, AppProvider provider) {
+    final plan = provider.readingPlan;
+
+    if (plan == null) {
+      return AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader(title: '읽기 플랜'),
+            const SizedBox(height: 16),
+            const Text(
+              '아직 읽기 플랜이 설정되지 않았어요.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.secondaryText,
+              ),
+            ),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              text: '플랜 설정하기',
+              onPressed: () => Navigator.push(
+                context,
+                SharedAxisPageRoute(builder: (_) => const ReadingPlanScreen()),
+              ),
+              icon: Icons.add_circle_outline,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final bookName = BibleConstants.getBookName(plan.startBook);
+    final unitText = plan.dailyChapters > 0
+        ? '하루 ${plan.dailyChapters}장'
+        : '하루 ${plan.dailyVerses}절';
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: '읽기 통계'),
+          const SectionHeader(title: '읽기 플랜'),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatBox(
-                  context,
-                  icon: Icons.menu_book_outlined,
-                  label: '총 읽은 날',
-                  value: '${provider.totalReadingDays}일',
-                  color: AppColors.softMint,
-                ),
+          _planInfoRow('시작 위치', '$bookName ${plan.startChapter}:${plan.startVerse}'),
+          const SizedBox(height: 10),
+          _planInfoRow('읽기 방식', unitText),
+          const SizedBox(height: 16),
+          OutlineButton(
+            text: '플랜 수정하기',
+            onPressed: () => Navigator.push(
+              context,
+              SharedAxisPageRoute(
+                builder: (_) => const ReadingPlanScreen(isEditMode: true),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatBox(
-                  context,
-                  icon: Icons.chat_bubble_outline,
-                  label: '나눔 횟수',
-                  value: '${provider.totalReflections}회',
-                  color: AppColors.softBlue,
-                ),
-              ),
-            ],
+            ),
+            icon: Icons.edit_outlined,
+            height: 48,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatBox(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
+  Widget _planInfoRow(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: AppColors.secondaryText,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _personChip(String name, Color bgColor) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(999),
       ),
+      child: Text(name,
+          style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryText)),
+    );
+  }
+
+  Widget _buildStatsCard(BuildContext context, AppProvider provider) {
+    final streak = provider.myStreak;
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.primary, size: 24),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primaryText,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: AppColors.secondaryText),
-          ),
+          const SectionHeader(title: '나의 기록'),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(
+                child: _statBox(context, '현재 연속',
+                    '${streak?.currentStreak ?? 0}일', AppColors.softMint)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _statBox(context, '최장 연속',
+                    '${streak?.longestStreak ?? 0}일', AppColors.softBlue)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _statBox(context, '총 완료',
+                    '${provider.totalReadingDays}일',
+                    const Color(0xFFFFF3E0))),
+          ]),
         ],
       ),
+    );
+  }
+
+  Widget _statBox(BuildContext context, String label, String value,
+      Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(children: [
+        Text(value,
+            style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primaryText)),
+        const SizedBox(height: 4),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.secondaryText)),
+      ]),
     );
   }
 
@@ -423,9 +662,44 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, AppProvider provider) {
-    showDialog(
+  void _showDisconnectDialog(BuildContext context, AppProvider provider) {
+    showModal(
       context: context,
+      configuration: const FadeScaleTransitionConfiguration(
+        barrierColor: Color(0x3C000000),
+      ),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('커플 연결 해제'),
+        content: const Text('커플 연결을 해제하면 함께 읽기 기록이 초기화됩니다.\n정말 해제하시겠어요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await provider.disconnectCouple();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('커플 연결이 해제되었습니다.')),
+                );
+              }
+            },
+            child: const Text('해제', style: TextStyle(color: AppColors.warning)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, AppProvider provider) {
+    showModal(
+      context: context,
+      configuration: const FadeScaleTransitionConfiguration(
+        barrierColor: Color(0x3C000000),
+      ),
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('로그아웃'),
@@ -447,33 +721,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showDisconnectDialog(BuildContext context, AppProvider provider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('커플 연결 해제'),
-        content: const Text('커플 연결을 해제하면 공유된 읽기 기록이 초기화됩니다.\n정말 해제하시겠어요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await provider.disconnectCouple();
-            },
-            child: const Text('해제', style: TextStyle(color: AppColors.warning)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAppInfo(BuildContext context) {
-    showDialog(
+    showModal(
       context: context,
+      configuration: const FadeScaleTransitionConfiguration(
+        barrierColor: Color(0x3C000000),
+      ),
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('가치읽자'),

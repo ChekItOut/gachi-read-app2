@@ -42,36 +42,43 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCFIaHwEdJTr_wqAKGXPXqMUrN6CaXPbSk',
-    appId: '1:70879729412:web:ce1f793a219a1d8f63a251',
+    apiKey: 'AIzaSyBup0X44OevuNGFsuZSsH7s-O8SnKkwsyM',
+    appId: '1:70879729412:android:9015d357feeeb67963a251',
     messagingSenderId: '70879729412',
     projectId: 'gachibible-580c0',
     storageBucket: 'gachibible-580c0.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCFIaHwEdJTr_wqAKGXPXqMUrN6CaXPbSk',
-    appId: '1:70879729412:web:ce1f793a219a1d8f63a251',
+    apiKey: 'AIzaSyBRgSngtzq1yw-2ycvwAyeVM0bgBsGKq6c',
+    appId: '1:70879729412:ios:98316f7a3598b99263a251',
     messagingSenderId: '70879729412',
     projectId: 'gachibible-580c0',
     storageBucket: 'gachibible-580c0.firebasestorage.app',
-    iosBundleId: 'com.example.gachiReadApp',
+    androidClientId: '70879729412-glg22mb0k8f47tg7hl6b2en6j7mqa31g.apps.googleusercontent.com',
+    iosClientId: '70879729412-ucp02t7ap5vps8pd7kp7h80qkatfcnb6.apps.googleusercontent.com',
+    iosBundleId: 'com.gachijukja.gachiReadApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCFIaHwEdJTr_wqAKGXPXqMUrN6CaXPbSk',
-    appId: '1:70879729412:web:ce1f793a219a1d8f63a251',
+    apiKey: 'AIzaSyBRgSngtzq1yw-2ycvwAyeVM0bgBsGKq6c',
+    appId: '1:70879729412:ios:98316f7a3598b99263a251',
     messagingSenderId: '70879729412',
     projectId: 'gachibible-580c0',
     storageBucket: 'gachibible-580c0.firebasestorage.app',
-    iosBundleId: 'com.example.gachiReadApp',
+    androidClientId: '70879729412-glg22mb0k8f47tg7hl6b2en6j7mqa31g.apps.googleusercontent.com',
+    iosClientId: '70879729412-ucp02t7ap5vps8pd7kp7h80qkatfcnb6.apps.googleusercontent.com',
+    iosBundleId: 'com.gachijukja.gachiReadApp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyCFIaHwEdJTr_wqAKGXPXqMUrN6CaXPbSk',
-    appId: '1:70879729412:web:ce1f793a219a1d8f63a251',
+    appId: '1:70879729412:web:37ca4daee4898c0463a251',
     messagingSenderId: '70879729412',
     projectId: 'gachibible-580c0',
+    authDomain: 'gachibible-580c0.firebaseapp.com',
     storageBucket: 'gachibible-580c0.firebasestorage.app',
+    measurementId: 'G-9V2H2K2CZ3',
   );
+
 }

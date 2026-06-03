@@ -30,7 +30,6 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
-        background: AppColors.background,
         surface: AppColors.surface,
         primary: AppColors.primary,
         onPrimary: Colors.white,
@@ -148,11 +147,11 @@ class AppTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         hintStyle: GoogleFonts.notoSansKr(
-          color: AppColors.secondaryText.withOpacity(0.6),
+          color: AppColors.secondaryText.withValues(alpha: 0.6),
           fontSize: 15,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(

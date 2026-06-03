@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:animations/animations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/bible_constants.dart';
 import '../../../data/services/bible_service.dart';
@@ -7,7 +8,8 @@ import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 
 class ReadingPlanScreen extends StatefulWidget {
-  const ReadingPlanScreen({super.key});
+  final bool isEditMode;
+  const ReadingPlanScreen({super.key, this.isEditMode = false});
 
   @override
   State<ReadingPlanScreen> createState() => _ReadingPlanScreenState();
@@ -28,22 +30,46 @@ class _ReadingPlanScreenState extends State<ReadingPlanScreen> {
   void initState() {
     super.initState();
     _bibleService.loadBible();
+
+    // 편집 모드일 때 기존 플랜 값으로 초기화
+    if (widget.isEditMode) {
+      final plan = context.read<AppProvider>().readingPlan;
+      if (plan != null) {
+        _selectedBook = plan.startBook;
+        _selectedChapter = plan.startChapter;
+        _selectedStartVerse = plan.startVerse;
+        _isChapterMode = plan.dailyChapters > 0;
+        _dailyChapters = plan.dailyChapters > 0 ? plan.dailyChapters : 1;
+        _dailyVerses = plan.dailyVerses > 0 ? plan.dailyVerses : 5;
+      }
+    }
   }
 
   Future<void> _savePlan() async {
     setState(() => _isLoading = true);
     try {
-      await context.read<AppProvider>().createReadingPlan(
-            startBook: _selectedBook,
-            startChapter: _selectedChapter,
-            startVerse: _selectedStartVerse,
-            dailyChapters: _isChapterMode ? _dailyChapters : 0,
-            dailyVerses: _isChapterMode ? 0 : _dailyVerses,
-          );
+      final provider = context.read<AppProvider>();
+      if (widget.isEditMode) {
+        await provider.updateReadingPlan(
+          startBook: _selectedBook,
+          startChapter: _selectedChapter,
+          startVerse: _selectedStartVerse,
+          dailyChapters: _isChapterMode ? _dailyChapters : 0,
+          dailyVerses: _isChapterMode ? 0 : _dailyVerses,
+        );
+      } else {
+        await provider.createReadingPlan(
+          startBook: _selectedBook,
+          startChapter: _selectedChapter,
+          startVerse: _selectedStartVerse,
+          dailyChapters: _isChapterMode ? _dailyChapters : 0,
+          dailyVerses: _isChapterMode ? 0 : _dailyVerses,
+        );
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('읽기 플랜이 설정되었습니다!'),
+          SnackBar(
+            content: Text(widget.isEditMode ? '읽기 플랜이 수정되었습니다!' : '읽기 플랜이 설정되었습니다!'),
             backgroundColor: AppColors.primary,
             behavior: SnackBarBehavior.floating,
           ),
@@ -65,7 +91,7 @@ class _ReadingPlanScreenState extends State<ReadingPlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('읽기 플랜 설정')),
+      appBar: AppBar(title: Text(widget.isEditMode ? '읽기 플랜 수정' : '읽기 플랜 설정')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -91,7 +117,7 @@ class _ReadingPlanScreenState extends State<ReadingPlanScreen> {
 
             // 저장 버튼
             PrimaryButton(
-              text: '플랜 저장하기',
+              text: widget.isEditMode ? '플랜 수정하기' : '플랜 저장하기',
               onPressed: _savePlan,
               isLoading: _isLoading,
               icon: Icons.check_circle_outline,
@@ -226,34 +252,57 @@ class _ReadingPlanScreenState extends State<ReadingPlanScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          // 수량 설정
-          if (_isChapterMode) ...[
-            Text(
-              '하루 몇 장씩 읽을까요?',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            _buildCountSelector(
-              value: _dailyChapters,
-              min: 1,
-              max: 10,
-              unit: '장',
-              onChanged: (v) => setState(() => _dailyChapters = v),
-            ),
-          ] else ...[
-            Text(
-              '하루 몇 절씩 읽을까요?',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            _buildCountSelector(
-              value: _dailyVerses,
-              min: 1,
-              max: 50,
-              unit: '절',
-              onChanged: (v) => setState(() => _dailyVerses = v),
-            ),
-          ],
+          // 수량 설정 (전환 애니메이션)
+          PageTransitionSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, primaryAnimation, secondaryAnimation) {
+              return SharedAxisTransition(
+                animation: primaryAnimation,
+                secondaryAnimation: secondaryAnimation,
+                transitionType: SharedAxisTransitionType.vertical,
+                child: child,
+              );
+            },
+            child: _isChapterMode
+                ? KeyedSubtree(
+                    key: const ValueKey('chapter'),
+                    child: Column(
+                      children: [
+                        Text(
+                          '하루 몇 장씩 읽을까요?',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCountSelector(
+                          value: _dailyChapters,
+                          min: 1,
+                          max: 10,
+                          unit: '장',
+                          onChanged: (v) => setState(() => _dailyChapters = v),
+                        ),
+                      ],
+                    ),
+                  )
+                : KeyedSubtree(
+                    key: const ValueKey('verse'),
+                    child: Column(
+                      children: [
+                        Text(
+                          '하루 몇 절씩 읽을까요?',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCountSelector(
+                          value: _dailyVerses,
+                          min: 1,
+                          max: 50,
+                          unit: '절',
+                          onChanged: (v) => setState(() => _dailyVerses = v),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
         ],
       ),
     );
